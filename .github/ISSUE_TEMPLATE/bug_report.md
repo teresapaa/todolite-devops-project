@@ -21,10 +21,4 @@ One-line description of the bug.
 - Branch / commit:
 - Browser / OS / device (if relevant):
 
-## Severity
-- [ ] Blocker — nothing else can proceed
-- [ ] High — breaks a core feature
-- [ ] Medium — annoying but has a workaround
-- [ ] Low — minor or cosmetic
-
 ## Screenshots / logs
