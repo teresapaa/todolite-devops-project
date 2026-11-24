@@ -1,13 +1,7 @@
-from app import create_app
 from models import db, User, Todo
 
 
-def test_crud_and_user_isolation():
-    app = create_app({
-        "TESTING": True,
-        "SECRET_KEY": "test",
-        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
-    })
+def test_crud_and_user_isolation(app):
     with app.app_context():
         db.drop_all()
         db.create_all()

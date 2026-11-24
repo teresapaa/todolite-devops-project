@@ -1,8 +1,16 @@
-from flask import Blueprint, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 from models import db, User
 
 auth_bp = Blueprint("auth", __name__)
+
+
+def start_session(user):
+    session.clear()
+    session["user_id"] = user.id
+    session["username"] = user.username
+    # New session id after login prevents session fixation.
+    current_app.session_interface.regenerate(session)
 
 
 @auth_bp.route("/signup", methods=["GET", "POST"])
@@ -18,8 +26,7 @@ def signup():
             user = User(username=username, password_hash=generate_password_hash(password))
             db.session.add(user)
             db.session.commit()
-            session["user_id"] = user.id
-            session["username"] = user.username
+            start_session(user)
             return redirect(url_for("todos.index"))
     return render_template("signup.html")
 
@@ -30,8 +37,7 @@ def login():
         user = User.query.filter_by(username=request.form.get("username", "").strip()).first()
         # TODO(team): Replace password login here when OAuth is added.
         if user and check_password_hash(user.password_hash, request.form.get("password", "")):
-            session["user_id"] = user.id
-            session["username"] = user.username
+            start_session(user)
             return redirect(url_for("todos.index"))
         flash("Invalid username or password.")
     return render_template("login.html")
@@ -39,5 +45,6 @@ def login():
 
 @auth_bp.route("/logout", methods=["POST"])
 def logout():
+    # Clearing a server-side session deletes it from the store.
     session.clear()
     return redirect(url_for("auth.login"))
