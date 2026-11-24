@@ -88,6 +88,17 @@ enabled kill switch and a 0–100 rollout percentage. Bucketing is sticky:
 flags in todo routes, and the UI only receives feature state for the current
 user.
 
+Who gets a feature is decided on the server by `authz.feature_enabled()`, in
+this order:
+
+1. **Kill switch:** with `enabled: false` the feature is off for everyone,
+   admins included.
+2. **Role permission:** the role needs `feature:<flag>`. Both `user` and
+   `admin` have it, anonymous and deactivated users never get a feature.
+3. **Rollout bucket:** users are bucketed as described above. Roles with
+   `feature:bypass_rollout` (admins) skip the bucket, so QA and demos can
+   always see the ON state.
+
 - `quick_add`: the `n` key focuses the add-todo input.
 - `priority_sort`: todos are sorted by priority descending; otherwise they are
   sorted by creation time descending. A `sort=priority` query parameter is
