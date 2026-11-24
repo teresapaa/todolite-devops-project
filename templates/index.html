@@ -19,6 +19,7 @@
 {% endif %}
 <form class="add" action="{{ url_for('todos.create') }}" method="post" data-quick-add="{{ 'true' if quick_add else 'false' }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label for="todo-title" class="visually-hidden">New todo</label>
   <input id="todo-title" name="title" required
          placeholder="{{ 'Add your first todo…' if show_nudge else 'Add a todo' }}"{{ ' autofocus' if show_nudge }}>
   <select name="priority" aria-label="Priority">
@@ -31,7 +32,7 @@
 {% for todo in todos %}
   {% set is_flagged = priority_flag and todo.flagged %}
   <li class="{{ 'completed' if todo.completed }}{{ ' flagged' if is_flagged }}">
-    <span class="priority">P{{ todo.priority }}</span>
+    <span class="priority" aria-label="Priority {{ todo.priority }}">P{{ todo.priority }}</span>
     <span class="title">{{ todo.title }}</span>
     {% if priority_flag %}
     <form action="{{ url_for('todos.flag', todo_id=todo.id) }}" method="post">
@@ -45,11 +46,11 @@
     {% endif %}
     <form action="{{ url_for('todos.complete', todo_id=todo.id) }}" method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" {{ 'disabled' if todo.completed }}>Complete</button>
+      <button type="submit" aria-label="Complete: {{ todo.title }}" {{ 'disabled' if todo.completed }}>Complete</button>
     </form>
     <form action="{{ url_for('todos.delete', todo_id=todo.id) }}" method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit">Delete</button>
+      <button type="submit" aria-label="Delete: {{ todo.title }}">Delete</button>
     </form>
   </li>
 {% else %}

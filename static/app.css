@@ -29,3 +29,14 @@ tr.inactive { color: #999; }
 .todos li.flagged { background: #fdecec; border-left: 4px solid #dc2626; padding-left: .5rem; }
 .flag-btn { background: none; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; min-width: 2.4rem; }
 .flag-btn[aria-pressed="true"] { border-color: #dc2626; color: #dc2626; }
+
+/* Accessibility and layout pass */
+label { font-weight: 600; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+@media (max-width: 480px) {
+  form.add { flex-wrap: wrap; }
+  form.add input { flex: 1 1 100%; }
+  .todos li { flex-wrap: wrap; }
+  .todos li form { margin-left: 0; }
+}
