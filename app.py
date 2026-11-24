@@ -1,6 +1,5 @@
 import logging
 import os
-
 from datetime import timedelta
 from cachelib import FileSystemCache
 from flask import Flask, jsonify, session
@@ -24,6 +23,7 @@ def add_missing_columns():
         for name, ddl in new_columns.items():
             if name not in existing:
                 connection.execute(text(f"ALTER TABLE todo ADD COLUMN {name} {ddl}"))
+
 
 csrf = CSRFProtect()
 

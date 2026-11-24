@@ -4,9 +4,7 @@ Demo users get placeholder OIDC subjects, so nobody can sign in as them; they on
 populate the admin area. Real accounts are created on the first Google sign-in.
 Warning: this drops all tables, including real accounts."""
 import random
-
 from datetime import datetime, timedelta
-from werkzeug.security import generate_password_hash
 from app import create_app
 from models import db, Todo, User
 

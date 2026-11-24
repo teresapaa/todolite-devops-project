@@ -18,10 +18,9 @@
 <div class="nudge" role="status" data-testid="empty-state-nudge">Add your first todo to get started</div>
 {% endif %}
 <form class="add" action="{{ url_for('todos.create') }}" method="post" data-quick-add="{{ 'true' if quick_add else 'false' }}">
-
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <input id="todo-title" name="title" placeholder="Add a todo" required>
-
+  <input id="todo-title" name="title" required
+         placeholder="{{ 'Add your first todo…' if show_nudge else 'Add a todo' }}"{{ ' autofocus' if show_nudge }}>
   <select name="priority" aria-label="Priority">
     {% for priority in range(1, 6) %}<option value="{{ priority }}">{{ priority }}</option>{% endfor %}
   </select>
@@ -36,6 +35,7 @@
     <span class="title">{{ todo.title }}</span>
     {% if priority_flag %}
     <form action="{{ url_for('todos.flag', todo_id=todo.id) }}" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="flag-btn" data-testid="flag-button"
               aria-pressed="{{ 'true' if is_flagged else 'false' }}"
               title="{{ 'Remove high priority' if is_flagged else 'Mark as high priority' }}">

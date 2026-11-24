@@ -47,11 +47,12 @@ def cmd_status(_args):
         users = User.query.order_by(User.id).all()
         if not users:
             return
-        print(f"\n{'user':<12}" + "".join(f"{n:<20}" for n in data))
+        width = max(len(u.email) for u in users) + 2
+        print(f"\n{'user':<{width}}" + "".join(f"{n:<20}" for n in data))
         for user in users:
             cells = "".join(f"{flags.variant(n, user.id).upper()} (b={flags.bucket(n, user.id):02d})".ljust(20)
                             for n in data)
-            print(f"{user.username:<12}{cells}")
+            print(f"{user.email:<{width}}{cells}")
         print("\nb = sticky bucket 0-99; the user is ON when b < rollout.")
 
 

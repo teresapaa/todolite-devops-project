@@ -1,9 +1,8 @@
-
 from datetime import datetime
-from flask import Blueprint, g, abort, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, g, redirect, render_template, request, url_for
 from sqlalchemy import desc
 from models import db, Event, Todo
-from flags import is_on<<<<<<< feature-tests
+from flags import is_on
 from metrics import record
 from authz import get_todo_or_404, require_permission
 
@@ -20,14 +19,6 @@ def safe_next():
     return url_for("todos.index")
 
 
-def owned_todo_or_404(todo_id, user_id):
-    todo = db.session.get(Todo, todo_id)
-    # TODO(team): RBAC roles can replace this owner-only server check.
-    if todo is None or todo.user_id != user_id:
-        abort(404)
-    return todo
-
-
 def variant_label(enabled):
     return "on" if enabled else "off"
 
@@ -35,16 +26,15 @@ def variant_label(enabled):
 @todos_bp.route("/")
 @require_permission("todo:read:own")
 def index():
-    user_id = current_user_id()
-    if user_id is None:
-        return redirect(url_for("auth.login"))
+    user_id = g.user.id
     # Server-side flag checks happen here, before the query and the template.
     priority_enabled = is_on("priority_sort", user_id)
     nudge = is_on("empty_state_nudge", user_id)
     priority_flag = is_on("priority_flag", user_id)
     query = Todo.query.filter_by(user_id=user_id)
-    todos = (query.order_by(desc(Todo.priority), desc(Todo.created_at)).all()
-             if priority_enabled else query.order_by(desc(Todo.created_at)).all())
+    # id breaks ties when two todos share the same created_at (coarse clocks on Windows).
+    todos = (query.order_by(desc(Todo.priority), desc(Todo.created_at), desc(Todo.id)).all()
+             if priority_enabled else query.order_by(desc(Todo.created_at), desc(Todo.id)).all())
 
     if not todos:
         # Exposure for H1: the first time this user sees an empty list, per variant.
@@ -60,9 +50,7 @@ def index():
 @todos_bp.route("/todos", methods=["POST"])
 @require_permission("todo:write:own")
 def create():
-    user_id = current_user_id()
-    if user_id is None:
-        return redirect(url_for("auth.login"))
+    user_id = g.user.id
     title = request.form.get("title", "").strip()
     try:
         priority = max(1, min(5, int(request.form.get("priority", 3))))
@@ -88,44 +76,38 @@ def create():
 @todos_bp.route("/todos/<int:todo_id>/complete", methods=["POST"])
 @require_permission("todo:write:own")
 def complete(todo_id):
-    user_id = current_user_id()
-    if user_id is None:
-        return redirect(url_for("auth.login"))
-    todo = owned_todo_or_404(todo_id, user_id)
+    todo = get_todo_or_404(todo_id, "write")
     if not todo.completed:
         todo.completed = True
         todo.completed_at = datetime.utcnow()
         db.session.commit()
-    return redirect(url_for("todos.index"))
+    return redirect(safe_next())
 
 
 @todos_bp.route("/todos/<int:todo_id>/flag", methods=["POST"])
+@require_permission("todo:write:own")
 def flag(todo_id):
-    user_id = current_user_id()
-    if user_id is None:
-        return redirect(url_for("auth.login"))
+    user_id = g.user.id
     # The real access check: a hidden button is not access control.
     if not is_on("priority_flag", user_id):
         record("flag_denied", "priority_flag", "off", user_id)
         abort(403)
-    todo = owned_todo_or_404(todo_id, user_id)
+    todo = get_todo_or_404(todo_id, "write")
     todo.flagged = not todo.flagged
     db.session.commit()
     record("flag_set" if todo.flagged else "flag_cleared", "priority_flag", "on", user_id)
-    return redirect(url_for("todos.index"))
+    return redirect(safe_next())
 
 
 @todos_bp.route("/todos/<int:todo_id>/delete", methods=["POST"])
 @require_permission("todo:write:own")
 def delete(todo_id):
-    user_id = current_user_id()
-    if user_id is None:
-        return redirect(url_for("auth.login"))
-    todo = owned_todo_or_404(todo_id, user_id)
+    user_id = g.user.id
+    todo = get_todo_or_404(todo_id, "write")
     age = (datetime.utcnow() - todo.created_at).total_seconds()
     db.session.delete(todo)
     db.session.commit()
     if age < FAST_DELETE_SECONDS:
         record("todo_deleted_fast", "empty_state_nudge",
                variant_label(is_on("empty_state_nudge", user_id)), user_id, age)
-    return redirect(url_for("todos.index"))
+    return redirect(safe_next())

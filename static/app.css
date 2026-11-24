@@ -20,3 +20,12 @@ table.admin { width: 100%; border-collapse: collapse; }
 table.admin th, table.admin td { text-align: left; padding: .4rem; border-bottom: 1px solid #ddd; }
 table.admin form { margin: 0; }
 tr.inactive { color: #999; }
+
+/* empty_state_nudge (ON) */
+.nudge { background: #eef5ff; border: 2px solid #3b82f6; border-radius: 8px;
+         padding: .9rem 1rem; font-weight: 600; color: #1e3a8a; margin-top: 1rem; }
+
+/* priority_flag (ON) */
+.todos li.flagged { background: #fdecec; border-left: 4px solid #dc2626; padding-left: .5rem; }
+.flag-btn { background: none; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; min-width: 2.4rem; }
+.flag-btn[aria-pressed="true"] { border-color: #dc2626; color: #dc2626; }

@@ -8,7 +8,7 @@ import json
 import pytest
 
 import flags
-from app import create_app
+from conftest import build_app, create_user, login_as
 from models import Event, Todo, db
 
 ALL_ON = {"empty_state_nudge": {"enabled": True, "rollout": 100},
@@ -28,16 +28,9 @@ def flag_file(tmp_path, monkeypatch):
     return write
 
 
-@pytest.fixture
-def app():
-    return create_app({"TESTING": True, "SECRET_KEY": "test",
-                       "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
-
-
-def signup(app, name="alice"):
-    client = app.test_client()
-    assert client.post("/signup", data={"username": name, "password": "pw"}).status_code == 302
-    return client
+def new_user(app, name="alice", role="user"):
+    """A fresh account (as after the first Google sign-in), logged in on its own client."""
+    return login_as(app.test_client(), create_user(app, name, role))
 
 
 def first_todo(app):
@@ -49,7 +42,7 @@ def first_todo(app):
 
 def test_nudge_on_shows_prompt_and_focuses_input(app, flag_file):
     flag_file(ALL_ON)
-    html = signup(app).get("/").get_data(as_text=True)
+    html = new_user(app).get("/").get_data(as_text=True)
     assert "Add your first todo to get started" in html
     assert "autofocus" in html
     assert 'placeholder="Add your first todo…"' in html
@@ -58,7 +51,7 @@ def test_nudge_on_shows_prompt_and_focuses_input(app, flag_file):
 
 def test_nudge_off_shows_old_empty_state(app, flag_file):
     flag_file(ALL_OFF)
-    html = signup(app).get("/").get_data(as_text=True)
+    html = new_user(app).get("/").get_data(as_text=True)
     assert "No todos yet." in html
     assert "Add your first todo to get started" not in html
     assert "autofocus" not in html
@@ -67,7 +60,7 @@ def test_nudge_off_shows_old_empty_state(app, flag_file):
 
 def test_nudge_disappears_once_list_has_a_todo(app, flag_file):
     flag_file(ALL_ON)
-    client = signup(app)
+    client = new_user(app)
     client.post("/todos", data={"title": "first", "priority": "3"})
     html = client.get("/").get_data(as_text=True)
     assert "Add your first todo to get started" not in html
@@ -78,7 +71,7 @@ def test_nudge_disappears_once_list_has_a_todo(app, flag_file):
 
 def test_flag_on_button_visible_and_toggles(app, flag_file):
     flag_file(ALL_ON)
-    client = signup(app)
+    client = new_user(app)
     client.post("/todos", data={"title": "pay rent", "priority": "3"})
     assert 'data-testid="flag-button"' in client.get("/").get_data(as_text=True)
 
@@ -93,7 +86,7 @@ def test_flag_on_button_visible_and_toggles(app, flag_file):
 
 def test_flag_off_button_hidden(app, flag_file):
     flag_file(ALL_OFF)
-    client = signup(app)
+    client = new_user(app)
     client.post("/todos", data={"title": "pay rent", "priority": "3"})
     html = client.get("/").get_data(as_text=True)
     assert 'data-testid="flag-button"' not in html
@@ -103,7 +96,7 @@ def test_flag_off_button_hidden(app, flag_file):
 def test_flag_off_is_blocked_on_server(app, flag_file):
     """A hidden button is not access control: a direct POST must also fail."""
     flag_file(ALL_OFF)
-    client = signup(app)
+    client = new_user(app)
     client.post("/todos", data={"title": "pay rent", "priority": "3"})
     todo_id = first_todo(app).id
     assert client.post(f"/todos/{todo_id}/flag").status_code == 403
@@ -114,7 +107,7 @@ def test_flag_off_is_blocked_on_server(app, flag_file):
 
 def test_flag_cannot_touch_other_users_todo(app, flag_file):
     flag_file(ALL_ON)
-    alice, bob = signup(app, "alice"), signup(app, "bob")
+    alice, bob = new_user(app, "alice"), new_user(app, "bob")
     alice.post("/todos", data={"title": "alice only", "priority": "3"})
     todo_id = first_todo(app).id
     assert bob.post(f"/todos/{todo_id}/flag").status_code == 404
@@ -127,11 +120,38 @@ def test_logged_out_user_cannot_flag(app, flag_file):
     assert response.status_code == 302 and "/login" in response.headers["Location"]
 
 
+def test_flag_needs_write_permission_even_when_on(app, flag_file):
+    """Toggle ON is not enough: RBAC still applies (unknown role has no permissions)."""
+    flag_file(ALL_ON)
+    owner = create_user(app, "guest", role="guest")
+    with app.app_context():
+        db.session.add(Todo(user_id=owner, title="x"))
+        db.session.commit()
+    client = login_as(app.test_client(), owner)
+    assert client.post(f"/todos/{first_todo(app).id}/flag").status_code == 403
+    assert first_todo(app).flagged is False
+
+
+def test_flag_form_is_csrf_protected(flag_file):
+    flag_file(ALL_ON)
+    app = build_app(WTF_CSRF_ENABLED=True)
+    client = new_user(app)
+    with app.app_context():
+        db.session.add(Todo(user_id=1, title="x"))
+        db.session.commit()
+    todo_id = first_todo(app).id
+    assert client.post(f"/todos/{todo_id}/flag").status_code == 400   # no token → rejected
+    html = client.get("/").get_data(as_text=True)
+    token = html.split(f'/todos/{todo_id}/flag" method="post">')[1].split('value="')[1].split('"')[0]
+    assert client.post(f"/todos/{todo_id}/flag", data={"csrf_token": token}).status_code == 302
+    assert first_todo(app).flagged is True
+
+
 # ---------- switching ----------
 
 def test_switch_on_off_on_without_restart_keeps_data(app, flag_file):
     flag_file(ALL_ON)
-    client = signup(app)
+    client = new_user(app)
     client.post("/todos", data={"title": "important", "priority": "2"})
     client.post(f"/todos/{first_todo(app).id}/flag")
     assert "🚩" in client.get("/").get_data(as_text=True)
@@ -146,7 +166,7 @@ def test_switch_on_off_on_without_restart_keeps_data(app, flag_file):
 
 
 def test_switching_nudge_mid_session(app, flag_file):
-    client = signup(app)
+    client = new_user(app)
     flag_file(ALL_OFF)
     assert "No todos yet." in client.get("/").get_data(as_text=True)
     flag_file(ALL_ON)
@@ -157,7 +177,7 @@ def test_switching_nudge_mid_session(app, flag_file):
 
 def test_env_kill_switch_beats_the_file(app, flag_file, monkeypatch):
     flag_file(ALL_ON)
-    client = signup(app)
+    client = new_user(app)
     client.post("/todos", data={"title": "x", "priority": "3"})
     monkeypatch.setenv("FLAGS_KILL", "priority_flag")
     assert 'data-testid="flag-button"' not in client.get("/").get_data(as_text=True)
@@ -189,7 +209,7 @@ def test_raising_rollout_only_adds_users(flag_file):
                                      '{"priority_flag": {"enabled": true, "rollout": "lots"}}'])
 def test_broken_config_fails_closed(app, flag_file, content):
     flags.FLAGS_FILE.write_text(content)
-    client = signup(app)
+    client = new_user(app)
     client.post("/todos", data={"title": "x", "priority": "3"})
     response = client.get("/")
     assert response.status_code == 200               # app keeps working
@@ -210,7 +230,7 @@ def test_repo_flags_json_is_valid():
 
 def test_events_are_tagged_with_variant(app, flag_file):
     flag_file(ALL_ON)
-    client = signup(app)
+    client = new_user(app)
     client.get("/")
     client.post("/todos", data={"title": "first", "priority": "3"})
     with app.app_context():
@@ -227,7 +247,7 @@ def test_server_error_is_counted_per_variant(app, flag_file):
     def boom():
         raise RuntimeError("boom")
 
-    client = signup(app)
+    client = new_user(app)
     assert client.get("/boom").status_code == 500
     with app.app_context():
         assert Event.query.filter_by(name="error", flag="priority_flag", variant="on").count() == 1

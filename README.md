@@ -77,8 +77,9 @@ Run `python seed.py` to reset the database and seed 20 demo users (`demo1` to
 `demo20`) with todos. Nobody can sign in as these users. They only fill the
 admin area. **Warning:** seeding drops all tables, including real accounts.
 
-There are no migrations. After a model change, delete `instance/todo.db`. It is
-recreated on the next start.
+There are no migrations, except that the startup adds the `todo.flagged` and
+`todo.completed_at` toggle columns to older databases. After any other model
+change, delete `instance/todo.db`. It is recreated on the next start.
 
 ## Feature flags
 
@@ -105,7 +106,7 @@ Flagged state stays in the database while the flag is OFF, so switching back los
 ### Operating the toggles
 
 ```bash
-python flagctl.py status                          # config + ON/OFF per demo user (sticky bucket)
+python flagctl.py status                          # config + ON/OFF per user (sticky bucket)
 python flagctl.py set priority_flag --rollout 20  # gradual rollout
 python flagctl.py set priority_flag --on          # enable (keeps rollout)
 python flagctl.py kill priority_flag              # kill switch: OFF for everyone
