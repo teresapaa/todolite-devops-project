@@ -2,7 +2,7 @@ import hashlib
 import json
 from unittest.mock import patch
 import flags
-from app import create_app
+from conftest import create_user, login_as
 
 
 def test_sticky_bucket_and_kill_switch(tmp_path):
@@ -18,14 +18,8 @@ def test_sticky_bucket_and_kill_switch(tmp_path):
         assert not flags.is_on("off", 123)
 
 
-def test_priority_sort_query_is_server_gated():
-    app = create_app({
-        "TESTING": True,
-        "SECRET_KEY": "test",
-        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
-    })
-    client = app.test_client()
-    client.post("/signup", data={"username": "user", "password": "secret"})
+def test_priority_sort_query_is_server_gated(app):
+    client = login_as(app.test_client(), create_user(app, "user"))
     client.post("/todos", data={"title": "high earlier", "priority": "5"})
     client.post("/todos", data={"title": "low later", "priority": "1"})
     with patch.object(flags, "load_flags", return_value={"priority_sort": {"enabled": False, "rollout": 100}}):
