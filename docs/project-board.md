@@ -16,7 +16,7 @@ Issues that are agreed, scoped, and ready for someone to pick up. An issue only 
 Someone is actively working on this. Whoever starts work moves the card and assigns themselves if they weren't already. Keep no more than one or two issues per person here at a time — if you're blocked, add the `blocked` label and comment with what you're waiting on.
 
 ### Done
-The PR that closes the issue has merged to `main` with green CI. The PR author moves the card. If the PR description includes `Closes #N`, GitHub also auto-closes the issue on merge.
+The PR that closes the issue has been approved and merged to `main` with green CI. If the PR description includes `Closes #N`, GitHub auto-closes the issue and the Projects automation moves the card to Done — no manual move needed.
 
 ## Labels
 
@@ -25,7 +25,7 @@ The PR that closes the issue has merged to `main` with green CI. The PR author m
 | `bug` | Something isn't working as expected. Applied automatically by the bug report template. |
 | `feature` | New capability or a meaningful change to existing behavior. Applied automatically by the feature request template. |
 | `task` | Internal work — chores, refactors, docs, setup. Applied automatically by the task template. |
-| `docs` | Documentation-only changes. Can combine with `task`. |
+| `documentation` | Documentation-only changes. Can combine with `task`. |
 | `blocked` | Work is paused waiting on something external. Always comment with what you're blocked on. |
 | `priority: high` | Must be done this week for the Dec 15 demo. |
 | `priority: low` | Nice-to-have — only picked up if higher-priority work is done. |
@@ -36,4 +36,4 @@ No explicit priority = medium. Do them roughly in the order they arrived.
 
 - **Opener:** creates the issue (lands in To do).
 - **Assignee:** moves To do → In progress when they start, and keeps progress comments on the issue.
-- **PR author:** moves In progress → Done when the PR merges.
+- **Automation:** moves In progress → Done when the PR merges via `Closes #N`. 
