@@ -142,3 +142,6 @@ python flagctl.py report                          # success + guardrail metrics 
   variables by `.github/workflows/ci.yml`.
 - The app refuses to start without these values (no hardcoded fallback).
 - Secret scanning with push protection is enabled: commits containing tokens are blocked.
+
+## Project workflow
+See [`docs/project-board.md`](docs/project-board.md) for how we use the GitHub Project board — columns, labels, and when cards move.
