@@ -9,6 +9,8 @@ def build_app(**overrides):
         "SECRET_KEY": "test",
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
         "WTF_CSRF_ENABLED": False,
+        "GOOGLE_CLIENT_ID": "test-client-id",
+        "GOOGLE_CLIENT_SECRET": "test-client-secret",
         "SESSION_COOKIE_SECURE": False,
         # In-memory session store so tests never touch instance/.
         "SESSION_CACHELIB": SimpleCache(),
@@ -22,10 +24,11 @@ def app():
     return build_app()
 
 
-def create_user(app, username, role="user"):
+def create_user(app, name, role="user"):
     from models import db, User
     with app.app_context():
-        user = User(username=username, password_hash="!", role=role)
+        user = User(oidc_issuer="https://accounts.google.com", oidc_sub=f"sub-{name}",
+                    email=f"{name}@example.com", name=name, role=role)
         db.session.add(user)
         db.session.commit()
         return user.id

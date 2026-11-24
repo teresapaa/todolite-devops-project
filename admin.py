@@ -44,7 +44,7 @@ def set_role(user_id):
         abort(400)
     user.role = role
     db.session.commit()
-    flash(f"{user.username} is now {role}.")
+    flash(f"{user.email} is now {role}.")
     return redirect(url_for("admin.users"))
 
 
@@ -54,18 +54,18 @@ def set_active(user_id):
     user = get_other_user_or_404(user_id)
     user.is_active = request.form.get("active") == "1"
     db.session.commit()
-    flash(f"{user.username} {'activated' if user.is_active else 'deactivated'}.")
+    flash(f"{user.email} {'activated' if user.is_active else 'deactivated'}.")
     return redirect(url_for("admin.users"))
 
 
 @admin_bp.cli.command("set-role")
-@click.argument("identifier")
+@click.argument("email")
 @click.argument("role", type=click.Choice(ROLES))
-def set_role_command(identifier, role):
-    """Assign ROLE to the user with the given username (bootstraps the first admin)."""
-    user = User.query.filter_by(username=identifier).first()
+def set_role_command(email, role):
+    """Assign ROLE to the user with EMAIL (bootstraps the first admin)."""
+    user = User.query.filter_by(email=email.strip().lower()).first()
     if user is None:
-        raise click.ClickException(f"No user {identifier!r}. The user has to log in once first.")
+        raise click.ClickException(f"No user {email!r}. The user has to sign in once first.")
     user.role = role
     db.session.commit()
-    click.echo(f"{user.username} is now {role}.")
+    click.echo(f"{user.email} is now {role}.")

@@ -24,6 +24,14 @@ def create_app(test_config=None):
     app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///todo.db")
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
+    # Google OIDC client (Google Cloud Console -> APIs & Services -> Credentials).
+    app.config["GOOGLE_CLIENT_ID"] = os.getenv("GOOGLE_CLIENT_ID")
+    app.config["GOOGLE_CLIENT_SECRET"] = os.getenv("GOOGLE_CLIENT_SECRET")
+    # Optional comma-separated allow list, e.g. "ntust.edu.tw"; empty allows every Google account.
+    app.config["ALLOWED_EMAIL_DOMAINS"] = [
+        d.strip().lower() for d in os.getenv("ALLOWED_EMAIL_DOMAINS", "").split(",") if d.strip()
+    ]
+
     # Server-side sessions: the cookie only carries a random session id, the data
     # lives on the server, so logout really invalidates the session.
     app.config.update(
@@ -43,6 +51,9 @@ def create_app(test_config=None):
             "SECRET_KEY is not set. Put it in .env (local) or in GitHub Secrets (CI/CD); "
             "generate one with: python -c 'import secrets; print(secrets.token_hex(32))'"
         )
+    missing = [k for k in ("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET") if not app.config.get(k)]
+    if missing:
+        raise RuntimeError(f"{', '.join(missing)} not set. Put them in .env (local) or in GitHub Secrets (CI/CD).")
     if "SESSION_CACHELIB" not in app.config:
         # File-based store under instance/ (git-ignored); shared by all workers on one host.
         app.config["SESSION_CACHELIB"] = FileSystemCache(
@@ -56,9 +67,10 @@ def create_app(test_config=None):
     csrf.init_app(app)
 
     from admin import admin_bp
-    from auth import auth_bp
+    from auth import auth_bp, init_oauth
     from authz import authz_bp
     from todos import todos_bp
+    init_oauth(app)
     app.register_blueprint(authz_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(todos_bp)

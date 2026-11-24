@@ -37,9 +37,9 @@ def test_admin_cannot_lock_out_themselves_or_set_unknown_roles(app):
 
 def test_set_role_cli(app):
     create_user(app, "alice")
-    result = app.test_cli_runner().invoke(args=["admin", "set-role", "alice", "admin"])
+    result = app.test_cli_runner().invoke(args=["admin", "set-role", "Alice@Example.com", "admin"])
     assert result.exit_code == 0, result.output
     with app.app_context():
-        assert User.query.filter_by(username="alice").first().role == "admin"
-    result = app.test_cli_runner().invoke(args=["admin", "set-role", "nobody", "admin"])
+        assert User.query.filter_by(email="alice@example.com").first().role == "admin"
+    result = app.test_cli_runner().invoke(args=["admin", "set-role", "nobody@example.com", "admin"])
     assert result.exit_code != 0

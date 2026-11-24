@@ -4,7 +4,7 @@
 <header>
   <h1>My Todos</h1>
   <nav>
-    <span class="hint">{{ current_user.username }}</span>
+    <span class="hint">{{ current_user.name }}</span>
     {# Cosmetic only: /admin is protected on the server by require_permission. #}
     {% if can('user:manage') %}<a href="{{ url_for('admin.users') }}">Admin</a>{% endif %}
     <form action="{{ url_for('auth.logout') }}" method="post">
