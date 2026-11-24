@@ -40,3 +40,12 @@ user.
 - `priority_sort`: todos are sorted by priority descending; otherwise they are
   sorted by creation time descending. A `sort=priority` query parameter is
   ignored when this flag is off.
+
+## Secrets
+
+- Locally: `cp .env.example .env` and set `SECRET_KEY` (`.env` is git-ignored).
+  Generate one with `python -c "import secrets; print(secrets.token_hex(32))"`.
+- CI/CD: `SECRET_KEY` is stored in **GitHub → Settings → Environments → production**
+  and injected as an environment variable by `.github/workflows/ci.yml`.
+- The app refuses to start without `SECRET_KEY` (no hardcoded fallback).
+- Secret scanning with push protection is enabled: commits containing tokens are blocked.

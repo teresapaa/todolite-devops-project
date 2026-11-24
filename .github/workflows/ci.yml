@@ -4,16 +4,37 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: read          # least privilege for every job
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
           python-version: "3.11"
       - run: pip install -r requirements.txt
       - run: ruff check .
-      - run: pytest
+      - run: pytest        # tests pass their own throwaway SECRET_KEY, no real secret needed
+
+  secrets-smoke-test:
+    # Shows how the pipeline injects a secret: only on main, only from the
+    # "production" environment, as an env var; GitHub masks it in the logs.
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Start the app with the production secret
+        env:
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        run: |
+          python -c "from app import create_app; app = create_app(); \
+          assert len(app.config['SECRET_KEY']) >= 32, 'SECRET_KEY too short'; \
+          print('SECRET_KEY injected from GitHub Secrets, length OK (value never printed)')"
