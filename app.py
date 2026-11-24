@@ -56,7 +56,9 @@ def create_app(test_config=None):
     csrf.init_app(app)
 
     from auth import auth_bp
+    from authz import authz_bp
     from todos import todos_bp
+    app.register_blueprint(authz_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(todos_bp)
     with app.app_context():

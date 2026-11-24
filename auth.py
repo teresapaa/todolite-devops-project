@@ -36,7 +36,8 @@ def login():
     if request.method == "POST":
         user = User.query.filter_by(username=request.form.get("username", "").strip()).first()
         # TODO(team): Replace password login here when OAuth is added.
-        if user and check_password_hash(user.password_hash, request.form.get("password", "")):
+        if (user and user.is_active
+                and check_password_hash(user.password_hash, request.form.get("password", ""))):
             start_session(user)
             return redirect(url_for("todos.index"))
         flash("Invalid username or password.")
