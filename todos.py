@@ -1,8 +1,7 @@
 from flask import Blueprint, g, redirect, render_template, request, url_for
 from sqlalchemy import desc
 from models import db, Todo
-from flags import is_on
-from authz import get_todo_or_404, require_permission
+from authz import feature_enabled, get_todo_or_404, require_permission
 
 todos_bp = Blueprint("todos", __name__)
 
@@ -18,15 +17,17 @@ def safe_next():
 @todos_bp.route("/")
 @require_permission("todo:read:own")
 def index():
-    user_id = g.user.id
-    # TODO(team): Server-side flag check happens here before constructing the todo query.
-    priority_enabled = is_on("priority_sort", user_id)
+    # Feature access is decided on the server (kill switch, role permission, rollout);
+    # the template only receives the result for the current user.
+    priority_enabled = feature_enabled("priority_sort")
     # TODO(team): Emit telemetry/metric events for completion and time-to-first-todo experiments here.
-    query = Todo.query.filter_by(user_id=user_id)
+    query = Todo.query.filter_by(user_id=g.user.id)
     # id breaks ties when two todos share the same created_at (coarse clocks on Windows).
     todos = (query.order_by(desc(Todo.priority), desc(Todo.created_at), desc(Todo.id)).all()
              if priority_enabled else query.order_by(desc(Todo.created_at), desc(Todo.id)).all())
-    return render_template("index.html", todos=todos, quick_add=is_on("quick_add", user_id),
+    # quick_add is only a keyboard shortcut in the browser; creating todos stays open to
+    # every user with todo:write:own, so there is no extra server action to protect.
+    return render_template("index.html", todos=todos, quick_add=feature_enabled("quick_add"),
                            priority_sort=priority_enabled)
 
 

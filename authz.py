@@ -2,19 +2,25 @@
 can() to hide buttons, but that is cosmetic and never replaces these checks."""
 from functools import wraps
 from flask import Blueprint, abort, g, redirect, session, url_for
+import flags
 from models import db, Todo, User
 
 authz_bp = Blueprint("authz", __name__)
 
 # Permissions are "<resource>:<action>:<scope>". "own" means the user's own objects,
-# "any" means objects of every user.
+# "any" means objects of every user. "feature:<flag>" allows a role to take part in a
+# toggled feature; "feature:bypass_rollout" skips the rollout bucket (for QA and demos).
+FEATURES = ("quick_add", "priority_sort")
+FEATURE_PERMISSIONS = frozenset(f"feature:{name}" for name in FEATURES)
+
 ROLE_PERMISSIONS = {
-    "user": frozenset({"todo:read:own", "todo:write:own"}),
+    "user": frozenset({"todo:read:own", "todo:write:own"}) | FEATURE_PERMISSIONS,
     "admin": frozenset({
         "todo:read:own", "todo:write:own",
         "todo:read:any", "todo:write:any",
         "user:manage",
-    }),
+        "feature:bypass_rollout",
+    }) | FEATURE_PERMISSIONS,
 }
 
 
@@ -31,12 +37,25 @@ def load_current_user():
 
 @authz_bp.app_context_processor
 def inject_authz():
-    return {"can": can, "current_user": g.get("user")}
+    return {"can": can, "feature_enabled": feature_enabled, "current_user": g.get("user")}
 
 
 def can(permission):
     user = g.get("user")
     return user is not None and permission in ROLE_PERMISSIONS.get(user.role, frozenset())
+
+
+def feature_enabled(name):
+    """Decide on the server whether the current user gets a toggled feature.
+
+    Order: kill switch (off for everyone, admins included) -> role permission ->
+    sticky rollout bucket (skipped by roles with feature:bypass_rollout)."""
+    user = g.get("user")
+    if user is None or not flags.is_enabled(name) or not can(f"feature:{name}"):
+        return False
+    if can("feature:bypass_rollout"):
+        return True
+    return flags.is_on(name, user.id)
 
 
 def login_required(view):
