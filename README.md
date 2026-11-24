@@ -77,8 +77,9 @@ Run `python seed.py` to reset the database and seed 20 demo users (`demo1` to
 `demo20`) with todos. Nobody can sign in as these users. They only fill the
 admin area. **Warning:** seeding drops all tables, including real accounts.
 
-There are no migrations. After a model change, delete `instance/todo.db`. It is
-recreated on the next start.
+There are no migrations, except that the startup adds the `todo.flagged` and
+`todo.completed_at` toggle columns to older databases. After any other model
+change, delete `instance/todo.db`. It is recreated on the next start.
 
 ## Feature flags
 
@@ -103,6 +104,33 @@ this order:
 - `priority_sort`: todos are sorted by priority descending; otherwise they are
   sorted by creation time descending. A `sort=priority` query parameter is
   ignored when this flag is off.
+
+### Experiment flags (Task 3)
+
+| Flag | ON | OFF |
+| --- | --- | --- |
+| `empty_state_nudge` | Empty list shows "Add your first todo to get started", input is auto-focused | "No todos yet." |
+| `priority_flag` | One-click 🚩 button per todo, flagged rows turn red | No button; `POST /todos/<id>/flag` returns **403** |
+
+Flagged state stays in the database while the flag is OFF, so switching back loses nothing.
+
+### Operating the toggles
+
+```bash
+python flagctl.py status                          # config + ON/OFF per user (sticky bucket)
+python flagctl.py set priority_flag --rollout 20  # gradual rollout
+python flagctl.py set priority_flag --on          # enable (keeps rollout)
+python flagctl.py kill priority_flag              # kill switch: OFF for everyone
+python flagctl.py report                          # success + guardrail metrics per variant
+```
+
+- `flags.json` is re-read on every request: changes apply without a restart.
+- Emergency kill switch without touching the file: `FLAGS_KILL=priority_flag,empty_state_nudge`
+  (PowerShell: `$env:FLAGS_KILL="priority_flag"; python app.py`).
+- `GET /healthz` shows what the running server sees (enabled, rollout, killed).
+- Broken or missing `flags.json` → every flag is OFF (fail closed), the app keeps running.
+- Normal changes to `flags.json` go through a pull request; CI runs
+  `tests/test_experiment_flags.py`, which also validates the shipped file.
 
 ## Secrets
 

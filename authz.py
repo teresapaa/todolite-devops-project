@@ -10,7 +10,7 @@ authz_bp = Blueprint("authz", __name__)
 # Permissions are "<resource>:<action>:<scope>". "own" means the user's own objects,
 # "any" means objects of every user. "feature:<flag>" allows a role to take part in a
 # toggled feature; "feature:bypass_rollout" skips the rollout bucket (for QA and demos).
-FEATURES = ("quick_add", "priority_sort")
+FEATURES = ("quick_add", "priority_sort", "empty_state_nudge", "priority_flag")
 FEATURE_PERMISSIONS = frozenset(f"feature:{name}" for name in FEATURES)
 
 ROLE_PERMISSIONS = {
