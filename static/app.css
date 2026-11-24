@@ -22,7 +22,6 @@ tr.inactive { color: #999; }
 
 /* Accessibility and layout pass */
 label { font-weight: 600; }
-form.stacked { flex-direction: column; align-items: stretch; max-width: 320px; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 :focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
 @media (max-width: 480px) {
