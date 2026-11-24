@@ -11,9 +11,15 @@ def load_flags():
     return json.loads(FLAGS_FILE.read_text())
 
 
-def is_on(flag_name, user_id):
+def is_enabled(flag_name):
+    """Kill switch: False means the feature is off for everyone."""
     flag = load_flags().get(flag_name)
-    if not flag or not flag.get("enabled", False):
+    return bool(flag and flag.get("enabled", False))
+
+
+def is_on(flag_name, user_id):
+    if not is_enabled(flag_name):
         return False
+    flag = load_flags()[flag_name]
     bucket = int(hashlib.sha256(f"{flag_name}:{user_id}".encode()).hexdigest(), 16) % 100
     return bucket < max(0, min(100, int(flag.get("rollout", 0))))
