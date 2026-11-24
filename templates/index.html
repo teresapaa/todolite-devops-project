@@ -15,6 +15,7 @@
 </header>
 <form class="add" action="{{ url_for('todos.create') }}" method="post" data-quick-add="{{ 'true' if quick_add else 'false' }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label for="todo-title" class="visually-hidden">New todo</label>
   <input id="todo-title" name="title" placeholder="Add a todo" required>
   <select name="priority" aria-label="Priority">
     {% for priority in range(1, 6) %}<option value="{{ priority }}">{{ priority }}</option>{% endfor %}
@@ -29,11 +30,11 @@
     <span>{{ todo.title }}</span>
     <form action="{{ url_for('todos.complete', todo_id=todo.id) }}" method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" {{ 'disabled' if todo.completed }}>Complete</button>
+      <button type="submit" aria-label="Complete: {{ todo.title }}" {{ 'disabled' if todo.completed }}>Complete</button>
     </form>
     <form action="{{ url_for('todos.delete', todo_id=todo.id) }}" method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit">Delete</button>
+      <button type="submit" aria-label="Delete: {{ todo.title }}">Delete</button>
     </form>
   </li>
 {% else %}
