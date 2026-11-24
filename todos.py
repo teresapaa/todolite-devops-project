@@ -19,8 +19,9 @@ def index():
     priority_enabled = is_on("priority_sort", user_id)
     # TODO(team): Emit telemetry/metric events for completion and time-to-first-todo experiments here.
     query = Todo.query.filter_by(user_id=user_id)
-    todos = (query.order_by(desc(Todo.priority), desc(Todo.created_at)).all()
-             if priority_enabled else query.order_by(desc(Todo.created_at)).all())
+    # id breaks ties when two todos share the same created_at (coarse clocks on Windows).
+    todos = (query.order_by(desc(Todo.priority), desc(Todo.created_at), desc(Todo.id)).all()
+             if priority_enabled else query.order_by(desc(Todo.created_at), desc(Todo.id)).all())
     return render_template("index.html", todos=todos, quick_add=is_on("quick_add", user_id),
                            priority_sort=priority_enabled)
 
