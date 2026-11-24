@@ -1,17 +1,23 @@
+
 from datetime import datetime
-from flask import Blueprint, abort, redirect, render_template, request, session, url_for
+from flask import Blueprint, g, abort, redirect, render_template, request, session, url_for
 from sqlalchemy import desc
 from models import db, Event, Todo
-from flags import is_on
+from flags import is_on<<<<<<< feature-tests
 from metrics import record
+from authz import get_todo_or_404, require_permission
 
 todos_bp = Blueprint("todos", __name__)
 
 FAST_DELETE_SECONDS = 300  # guardrail H1: a todo deleted this fast was probably junk
 
 
-def current_user_id():
-    return session.get("user_id")
+def safe_next():
+    """Redirect target from the form, limited to local paths (no open redirect)."""
+    target = request.form.get("next", "")
+    if target.startswith("/") and not target.startswith("//") and "\\" not in target:
+        return target
+    return url_for("todos.index")
 
 
 def owned_todo_or_404(todo_id, user_id):
@@ -27,6 +33,7 @@ def variant_label(enabled):
 
 
 @todos_bp.route("/")
+@require_permission("todo:read:own")
 def index():
     user_id = current_user_id()
     if user_id is None:
@@ -51,6 +58,7 @@ def index():
 
 
 @todos_bp.route("/todos", methods=["POST"])
+@require_permission("todo:write:own")
 def create():
     user_id = current_user_id()
     if user_id is None:
@@ -78,6 +86,7 @@ def create():
 
 
 @todos_bp.route("/todos/<int:todo_id>/complete", methods=["POST"])
+@require_permission("todo:write:own")
 def complete(todo_id):
     user_id = current_user_id()
     if user_id is None:
@@ -107,6 +116,7 @@ def flag(todo_id):
 
 
 @todos_bp.route("/todos/<int:todo_id>/delete", methods=["POST"])
+@require_permission("todo:write:own")
 def delete(todo_id):
     user_id = current_user_id()
     if user_id is None:

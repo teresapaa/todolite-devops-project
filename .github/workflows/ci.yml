@@ -16,7 +16,7 @@ jobs:
           python-version: "3.11"
       - run: pip install -r requirements.txt
       - run: ruff check .
-      - run: pytest        # tests pass their own throwaway SECRET_KEY, no real secret needed
+      - run: pytest        # tests pass their own throwaway secrets and mock Google
 
   secrets-smoke-test:
     # Shows how the pipeline injects a secret: only on main, only from the
@@ -31,10 +31,14 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -r requirements.txt
-      - name: Start the app with the production secret
+      - name: Start the app with the production secrets
         env:
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
         run: |
           python -c "from app import create_app; app = create_app(); \
           assert len(app.config['SECRET_KEY']) >= 32, 'SECRET_KEY too short'; \
-          print('SECRET_KEY injected from GitHub Secrets, length OK (value never printed)')"
+          assert app.config['GOOGLE_CLIENT_ID'].endswith('.apps.googleusercontent.com'), 'GOOGLE_CLIENT_ID malformed'; \
+          assert app.config['SESSION_COOKIE_SECURE'], 'session cookie must be Secure in production'; \
+          print('Secrets injected from GitHub Secrets, checks OK (values never printed)')"

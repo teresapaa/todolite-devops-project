@@ -3,15 +3,25 @@
 {% block content %}
 <header>
   <h1>My Todos</h1>
-  <form action="{{ url_for('auth.logout') }}" method="post"><button type="submit">Logout</button></form>
+  <nav>
+    <span class="hint">{{ current_user.name }}</span>
+    {# Cosmetic only: /admin is protected on the server by require_permission. #}
+    {% if can('user:manage') %}<a href="{{ url_for('admin.users') }}">Admin</a>{% endif %}
+    <form action="{{ url_for('auth.logout') }}" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit">Logout</button>
+    </form>
+  </nav>
 </header>
 {% set show_nudge = empty_state_nudge and not todos %}
 {% if show_nudge %}
 <div class="nudge" role="status" data-testid="empty-state-nudge">Add your first todo to get started</div>
 {% endif %}
 <form class="add" action="{{ url_for('todos.create') }}" method="post" data-quick-add="{{ 'true' if quick_add else 'false' }}">
-  <input id="todo-title" name="title" required
-         placeholder="{{ 'Add your first todo…' if show_nudge else 'Add a todo' }}"{{ ' autofocus' if show_nudge }}>
+
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input id="todo-title" name="title" placeholder="Add a todo" required>
+
   <select name="priority" aria-label="Priority">
     {% for priority in range(1, 6) %}<option value="{{ priority }}">{{ priority }}</option>{% endfor %}
   </select>
@@ -34,9 +44,11 @@
     </form>
     {% endif %}
     <form action="{{ url_for('todos.complete', todo_id=todo.id) }}" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" {{ 'disabled' if todo.completed }}>Complete</button>
     </form>
     <form action="{{ url_for('todos.delete', todo_id=todo.id) }}" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit">Delete</button>
     </form>
   </li>

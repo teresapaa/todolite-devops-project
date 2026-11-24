@@ -10,11 +10,59 @@ A minimal Flask + SQLite todo-list scaffold.
 python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env
+cp .env.example .env   # then fill in SECRET_KEY and the Google client (see below)
 python app.py
 ```
 
-Open `http://127.0.0.1:5000`.
+Open `http://localhost:5000` (use the same host as the redirect URI registered
+at Google, otherwise Google rejects the login).
+
+## Google login (one-time setup)
+
+1. [Google Cloud Console](https://console.cloud.google.com/) → create or pick a project.
+2. **APIs & Services → OAuth consent screen**: user type *External*, add app
+   name and support email. While the app is in *Testing*, only the listed
+   test users can sign in. Add your team there, or publish the app.
+3. **APIs & Services → Credentials → Create credentials → OAuth client ID**,
+   type *Web application*, authorized redirect URIs:
+   - `http://localhost:5000/auth/callback` (local)
+   - `https://<your-domain>/auth/callback` (production)
+4. Put the client ID and secret into `.env` as `GOOGLE_CLIENT_ID` /
+   `GOOGLE_CLIENT_SECRET`.
+5. Sign in once, then make yourself admin:
+   `flask --app app admin set-role you@gmail.com admin`
+
+## Authentication and authorization
+
+- **OIDC:** Sign-in uses Google with the authorization code flow and PKCE
+  (Authlib). The state, the nonce and the ID token's signature, issuer,
+  audience and expiry are checked before any account lookup. Accounts are keyed
+  by the token's `(iss, sub)` pair. Email and name are only profile data and
+  are refreshed on every login. The first login creates the account with role
+  `user`. Unverified emails are rejected. `ALLOWED_EMAIL_DOMAINS` can limit
+  sign-in to certain domains.
+- **Server-side sessions:** Flask-Session keeps session data in
+  `instance/sessions`. The cookie holds only a random id and is HttpOnly,
+  SameSite=Lax and Secure outside local dev, with an 8 h lifetime. The id is
+  regenerated on login, and logout deletes the session on the server. Google
+  has no RP-initiated logout, so the Google session itself stays signed in.
+- **RBAC:** `authz.py` maps roles to permissions:
+
+  | Role | Permissions |
+  |---|---|
+  | `user` | `todo:read:own`, `todo:write:own` |
+  | `admin` | additionally `todo:read:any`, `todo:write:any`, `user:manage` |
+
+  Roles live in the database, never in the session or token. The current user
+  is reloaded on every request, so role changes and deactivations apply
+  immediately. Admins manage roles and accounts under `/admin/users`.
+- **Server-side checks:** Every route is guarded by `require_permission`.
+  Object access goes through `get_todo_or_404`, which checks ownership or the
+  `any` permission and answers 404 so foreign ids cannot be probed. Hidden
+  buttons in templates are cosmetic only. All POST forms carry a CSRF token
+  (Flask-WTF).
+- Behind a reverse proxy (TLS termination), wrap the app in Werkzeug's
+  `ProxyFix` so the callback URL is built with `https`.
 
 ## Tests and lint
 
@@ -25,8 +73,12 @@ pytest
 
 ## Demo data
 
-Run `python seed.py` to reset and seed 20 demo users. Each username is `demo1`
-through `demo20`; the password for every demo user is `demo`.
+Run `python seed.py` to reset the database and seed 20 demo users (`demo1` to
+`demo20`) with todos. Nobody can sign in as these users. They only fill the
+admin area. **Warning:** seeding drops all tables, including real accounts.
+
+There are no migrations. After a model change, delete `instance/todo.db`. It is
+recreated on the next start.
 
 ## Feature flags
 
@@ -70,9 +122,11 @@ python flagctl.py report                          # success + guardrail metrics 
 
 ## Secrets
 
-- Locally: `cp .env.example .env` and set `SECRET_KEY` (`.env` is git-ignored).
-  Generate one with `python -c "import secrets; print(secrets.token_hex(32))"`.
-- CI/CD: `SECRET_KEY` is stored in **GitHub → Settings → Environments → production**
-  and injected as an environment variable by `.github/workflows/ci.yml`.
-- The app refuses to start without `SECRET_KEY` (no hardcoded fallback).
+- Locally: `cp .env.example .env` and set `SECRET_KEY`, `GOOGLE_CLIENT_ID` and
+  `GOOGLE_CLIENT_SECRET` (`.env` is git-ignored).
+  Generate the key with `python -c "import secrets; print(secrets.token_hex(32))"`.
+- CI/CD: `SECRET_KEY`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are stored in
+  **GitHub → Settings → Environments → production** and injected as environment
+  variables by `.github/workflows/ci.yml`.
+- The app refuses to start without these values (no hardcoded fallback).
 - Secret scanning with push protection is enabled: commits containing tokens are blocked.
