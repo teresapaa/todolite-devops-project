@@ -3,10 +3,15 @@
 {% block content %}
 <header>
   <h1>My Todos</h1>
-  <form action="{{ url_for('auth.logout') }}" method="post">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button type="submit">Logout</button>
-  </form>
+  <nav>
+    <span class="hint">{{ current_user.username }}</span>
+    {# Cosmetic only: /admin is protected on the server by require_permission. #}
+    {% if can('user:manage') %}<a href="{{ url_for('admin.users') }}">Admin</a>{% endif %}
+    <form action="{{ url_for('auth.logout') }}" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit">Logout</button>
+    </form>
+  </nav>
 </header>
 <form class="add" action="{{ url_for('todos.create') }}" method="post" data-quick-add="{{ 'true' if quick_add else 'false' }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

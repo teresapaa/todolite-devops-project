@@ -11,3 +11,10 @@ input, select, button { padding: .6rem; }
 .priority { font-weight: bold; min-width: 2.5rem; }
 .flash { color: #a00; }
 .hint { color: #666; }
+main > header nav { display: flex; gap: 1rem; align-items: center; }
+main > header nav form { margin: 0; }
+.table-wrap { overflow-x: auto; }
+table.admin { width: 100%; border-collapse: collapse; }
+table.admin th, table.admin td { text-align: left; padding: .4rem; border-bottom: 1px solid #ddd; }
+table.admin form { margin: 0; }
+tr.inactive { color: #999; }

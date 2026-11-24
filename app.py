@@ -55,12 +55,14 @@ def create_app(test_config=None):
     Session(app)
     csrf.init_app(app)
 
+    from admin import admin_bp
     from auth import auth_bp
     from authz import authz_bp
     from todos import todos_bp
     app.register_blueprint(authz_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(todos_bp)
+    app.register_blueprint(admin_bp)
     with app.app_context():
         db.create_all()
     return app
