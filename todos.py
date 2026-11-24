@@ -1,10 +1,8 @@
 from datetime import datetime
 from flask import Blueprint, abort, g, redirect, render_template, request, url_for
 from sqlalchemy import desc
-from models import db, Event, Todo
-from flags import is_on
-from metrics import record
-from authz import get_todo_or_404, require_permission
+from models import db, Todo
+from authz import feature_enabled, get_todo_or_404, require_permission
 
 todos_bp = Blueprint("todos", __name__)
 
@@ -26,25 +24,18 @@ def variant_label(enabled):
 @todos_bp.route("/")
 @require_permission("todo:read:own")
 def index():
-    user_id = g.user.id
-    # Server-side flag checks happen here, before the query and the template.
-    priority_enabled = is_on("priority_sort", user_id)
-    nudge = is_on("empty_state_nudge", user_id)
-    priority_flag = is_on("priority_flag", user_id)
-    query = Todo.query.filter_by(user_id=user_id)
+    # Feature access is decided on the server (kill switch, role permission, rollout);
+    # the template only receives the result for the current user.
+    priority_enabled = feature_enabled("priority_sort")
+    # TODO(team): Emit telemetry/metric events for completion and time-to-first-todo experiments here.
+    query = Todo.query.filter_by(user_id=g.user.id)
     # id breaks ties when two todos share the same created_at (coarse clocks on Windows).
     todos = (query.order_by(desc(Todo.priority), desc(Todo.created_at), desc(Todo.id)).all()
              if priority_enabled else query.order_by(desc(Todo.created_at), desc(Todo.id)).all())
-
-    if not todos:
-        # Exposure for H1: the first time this user sees an empty list, per variant.
-        record("empty_list_view", "empty_state_nudge", variant_label(nudge), user_id, once=True)
-    else:
-        record("exposure", "priority_flag", variant_label(priority_flag), user_id, once=True)
-
-    return render_template("index.html", todos=todos, quick_add=is_on("quick_add", user_id),
-                           priority_sort=priority_enabled, empty_state_nudge=nudge,
-                           priority_flag=priority_flag)
+    # quick_add is only a keyboard shortcut in the browser; creating todos stays open to
+    # every user with todo:write:own, so there is no extra server action to protect.
+    return render_template("index.html", todos=todos, quick_add=feature_enabled("quick_add"),
+                           priority_sort=priority_enabled)
 
 
 @todos_bp.route("/todos", methods=["POST"])
