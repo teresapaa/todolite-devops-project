@@ -221,3 +221,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local app data and operator temp files
+*.db
+flags.json.tmp
+
+# Reports / presentations stay out of the repo
+*.pdf
+*.pptx
+*.docx

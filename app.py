@@ -1,13 +1,29 @@
+import logging
 import os
 from datetime import timedelta
 from cachelib import FileSystemCache
-from flask import Flask
+from flask import Flask, g, jsonify
 from flask_session import Session
 from flask_wtf.csrf import CSRFProtect
 from dotenv import load_dotenv
+from sqlalchemy import inspect, text
 from models import db
 
 load_dotenv()
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+
+EXPERIMENT_FLAGS = ("empty_state_nudge", "priority_flag")
+
+
+def add_missing_columns():
+    """Tiny migration: older todo.db files predate the toggle columns."""
+    existing = {column["name"] for column in inspect(db.engine).get_columns("todo")}
+    new_columns = {"flagged": "BOOLEAN NOT NULL DEFAULT 0", "completed_at": "DATETIME"}
+    with db.engine.begin() as connection:
+        for name, ddl in new_columns.items():
+            if name not in existing:
+                connection.execute(text(f"ALTER TABLE todo ADD COLUMN {name} {ddl}"))
+
 
 csrf = CSRFProtect()
 
@@ -77,6 +93,31 @@ def create_app(test_config=None):
     app.register_blueprint(admin_bp)
     with app.app_context():
         db.create_all()
+        add_missing_columns()
+
+    @app.get("/healthz")
+    def healthz():
+        # Lets the operator confirm what the running server sees, e.g. after a kill switch.
+        from flags import killed_flags, load_flags
+        killed = killed_flags()
+        return jsonify(status="ok", flags={
+            name: {"enabled": cfg.get("enabled") is True and name not in killed,
+                   "rollout": cfg.get("rollout", 0), "killed": name in killed}
+            for name, cfg in load_flags().items() if isinstance(cfg, dict)
+        })
+
+    @app.errorhandler(500)
+    def server_error(error):
+        # Guardrail: count server errors per variant of each experiment flag.
+        from authz import feature_enabled
+        from metrics import record
+        db.session.rollback()
+        user = g.get("user")
+        if user is not None:
+            for name in EXPERIMENT_FLAGS:
+                record("error", name, "on" if feature_enabled(name) else "off", user.id)
+        return "Internal server error", 500
+
     return app
 
 

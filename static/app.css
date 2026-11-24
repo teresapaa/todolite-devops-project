@@ -12,6 +12,7 @@ a.button { display: inline-block; padding: .6rem 1rem; border: 1px solid #888; b
 .priority { font-weight: bold; min-width: 2.5rem; }
 .flash { color: #a00; }
 .hint { color: #666; }
+
 main > header nav { display: flex; gap: 1rem; align-items: center; }
 main > header nav form { margin: 0; }
 .table-wrap { overflow-x: auto; }
@@ -20,13 +21,11 @@ table.admin th, table.admin td { text-align: left; padding: .4rem; border-bottom
 table.admin form { margin: 0; }
 tr.inactive { color: #999; }
 
-/* Accessibility and layout pass */
-label { font-weight: 600; }
-.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
-@media (max-width: 480px) {
-  form.add { flex-wrap: wrap; }
-  form.add input { flex: 1 1 100%; }
-  .todos li { flex-wrap: wrap; }
-  .todos li form { margin-left: 0; }
-}
+/* empty_state_nudge (ON) */
+.nudge { background: #eef5ff; border: 2px solid #3b82f6; border-radius: 8px;
+         padding: .9rem 1rem; font-weight: 600; color: #1e3a8a; margin-top: 1rem; }
+
+/* priority_flag (ON) */
+.todos li.flagged { background: #fdecec; border-left: 4px solid #dc2626; padding-left: .5rem; }
+.flag-btn { background: none; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; min-width: 2.4rem; }
+.flag-btn[aria-pressed="true"] { border-color: #dc2626; color: #dc2626; }

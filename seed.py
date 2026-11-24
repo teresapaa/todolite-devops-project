@@ -4,6 +4,7 @@ Demo users get placeholder OIDC subjects, so nobody can sign in as them; they on
 populate the admin area. Real accounts are created on the first Google sign-in.
 Warning: this drops all tables, including real accounts."""
 import random
+from datetime import datetime, timedelta
 from app import create_app
 from models import db, Todo, User
 
@@ -19,11 +20,16 @@ with app.app_context():
         db.session.add(user)
         db.session.flush()
         for index in range(random.randint(5, 10)):
+            created = datetime.utcnow() - timedelta(days=random.randint(1, 14))
+            completed = random.choice([False, False, True])
             db.session.add(Todo(
                 user_id=user.id,
                 title=f"Demo todo {index + 1} for {user.name}",
                 priority=random.randint(1, 5),
-                completed=random.choice([False, False, True]),
+                completed=completed,
+                created_at=created,
+                completed_at=(min(created + timedelta(days=random.randint(0, 10)), datetime.utcnow())
+                              if completed else None),
             ))
     db.session.commit()
     print("Seeded 20 demo users with 5-10 todos each (they cannot sign in).")
