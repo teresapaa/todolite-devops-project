@@ -48,14 +48,24 @@ def bucket(flag_name, user_id):
 
 
 def is_enabled(flag_name):
-    """Kill switch: False means the feature is off for everyone."""
+    """Kill switch: False means the feature is off for everyone (admins included)."""
+    if flag_name in killed_flags():
+        return False
     flag = load_flags().get(flag_name)
-    return bool(flag and flag.get("enabled", False))
+    return isinstance(flag, dict) and flag.get("enabled") is True
 
 
 def is_on(flag_name, user_id):
+    """Kill switch + sticky rollout bucket. Role checks live in authz.feature_enabled()."""
     if not is_enabled(flag_name):
         return False
-    flag = load_flags()[flag_name]
-    bucket = int(hashlib.sha256(f"{flag_name}:{user_id}".encode()).hexdigest(), 16) % 100
-    return bucket < max(0, min(100, int(flag.get("rollout", 0))))
+    try:
+        rollout = max(0, min(100, int(load_flags()[flag_name].get("rollout", 0))))
+    except (KeyError, TypeError, ValueError):
+        return False
+    return bucket(flag_name, user_id) < rollout
+
+
+def variant(flag_name, user_id):
+    """'on' or 'off' from the bucket alone (no role check); used by flagctl and logs."""
+    return "on" if is_on(flag_name, user_id) else "off"

@@ -1,7 +1,8 @@
 from datetime import datetime
 from flask import Blueprint, abort, g, redirect, render_template, request, url_for
 from sqlalchemy import desc
-from models import db, Todo
+from models import db, Event, Todo
+from metrics import record
 from authz import feature_enabled, get_todo_or_404, require_permission
 
 todos_bp = Blueprint("todos", __name__)
@@ -24,18 +25,28 @@ def variant_label(enabled):
 @todos_bp.route("/")
 @require_permission("todo:read:own")
 def index():
+    user_id = g.user.id
     # Feature access is decided on the server (kill switch, role permission, rollout);
     # the template only receives the result for the current user.
     priority_enabled = feature_enabled("priority_sort")
-    # TODO(team): Emit telemetry/metric events for completion and time-to-first-todo experiments here.
-    query = Todo.query.filter_by(user_id=g.user.id)
+    nudge = feature_enabled("empty_state_nudge")
+    priority_flag = feature_enabled("priority_flag")
+    query = Todo.query.filter_by(user_id=user_id)
     # id breaks ties when two todos share the same created_at (coarse clocks on Windows).
     todos = (query.order_by(desc(Todo.priority), desc(Todo.created_at), desc(Todo.id)).all()
              if priority_enabled else query.order_by(desc(Todo.created_at), desc(Todo.id)).all())
+
+    if not todos:
+        # Exposure for H1: the first time this user sees an empty list, per variant.
+        record("empty_list_view", "empty_state_nudge", variant_label(nudge), user_id, once=True)
+    else:
+        record("exposure", "priority_flag", variant_label(priority_flag), user_id, once=True)
+
     # quick_add is only a keyboard shortcut in the browser; creating todos stays open to
     # every user with todo:write:own, so there is no extra server action to protect.
     return render_template("index.html", todos=todos, quick_add=feature_enabled("quick_add"),
-                           priority_sort=priority_enabled)
+                           priority_sort=priority_enabled, empty_state_nudge=nudge,
+                           priority_flag=priority_flag)
 
 
 @todos_bp.route("/todos", methods=["POST"])
@@ -52,7 +63,7 @@ def create():
         db.session.add(Todo(user_id=user_id, title=title, priority=priority))
         db.session.commit()
 
-        nudge_variant = variant_label(is_on("empty_state_nudge", user_id))
+        nudge_variant = variant_label(feature_enabled("empty_state_nudge"))
         record("todo_created", "empty_state_nudge", nudge_variant, user_id)
         if is_first:
             # Success metric H1: seconds from first empty-list view to first todo.
@@ -80,7 +91,7 @@ def complete(todo_id):
 def flag(todo_id):
     user_id = g.user.id
     # The real access check: a hidden button is not access control.
-    if not is_on("priority_flag", user_id):
+    if not feature_enabled("priority_flag"):
         record("flag_denied", "priority_flag", "off", user_id)
         abort(403)
     todo = get_todo_or_404(todo_id, "write")
@@ -100,5 +111,5 @@ def delete(todo_id):
     db.session.commit()
     if age < FAST_DELETE_SECONDS:
         record("todo_deleted_fast", "empty_state_nudge",
-               variant_label(is_on("empty_state_nudge", user_id)), user_id, age)
+               variant_label(feature_enabled("empty_state_nudge")), user_id, age)
     return redirect(safe_next())

@@ -48,12 +48,26 @@ def cmd_status(_args):
         if not users:
             return
         width = max(len(u.email) for u in users) + 2
-        print(f"\n{'user':<{width}}" + "".join(f"{n:<20}" for n in data))
+        print(f"\n{'user':<{width}}{'role':<8}" + "".join(f"{n:<20}" for n in data))
         for user in users:
-            cells = "".join(f"{flags.variant(n, user.id).upper()} (b={flags.bucket(n, user.id):02d})".ljust(20)
-                            for n in data)
-            print(f"{user.email:<{width}}{cells}")
-        print("\nb = sticky bucket 0-99; the user is ON when b < rollout.")
+            cells = "".join(effective(n, user).ljust(20) for n in data)
+            print(f"{user.email:<{width}}{user.role:<8}{cells}")
+        print("\nb = sticky bucket 0-99; a user is ON when b < rollout. Admins bypass the rollout "
+              "(feature:bypass_rollout),\nbut the kill switch turns the feature off for them too.")
+
+
+def effective(name, user):
+    """Same decision as authz.feature_enabled(), for a user outside a request."""
+    from authz import ROLE_PERMISSIONS
+    perms = ROLE_PERMISSIONS.get(user.role, frozenset())
+    b = f"(b={flags.bucket(name, user.id):02d})"
+    if not flags.is_enabled(name):
+        return f"OFF {b}"
+    if f"feature:{name}" not in perms:
+        return "OFF (role)"
+    if "feature:bypass_rollout" in perms:
+        return "ON (admin)"
+    return f"{flags.variant(name, user.id).upper()} {b}"
 
 
 def cmd_set(args):

@@ -2,7 +2,7 @@ import logging
 import os
 from datetime import timedelta
 from cachelib import FileSystemCache
-from flask import Flask, jsonify, session
+from flask import Flask, g, jsonify
 from flask_session import Session
 from flask_wtf.csrf import CSRFProtect
 from dotenv import load_dotenv
@@ -109,13 +109,13 @@ def create_app(test_config=None):
     @app.errorhandler(500)
     def server_error(error):
         # Guardrail: count server errors per variant of each experiment flag.
-        from flags import variant
+        from authz import feature_enabled
         from metrics import record
         db.session.rollback()
-        user_id = session.get("user_id")
-        if user_id is not None:
+        user = g.get("user")
+        if user is not None:
             for name in EXPERIMENT_FLAGS:
-                record("error", name, variant(name, user_id), user_id)
+                record("error", name, "on" if feature_enabled(name) else "off", user.id)
         return "Internal server error", 500
 
     return app

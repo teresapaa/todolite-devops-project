@@ -132,6 +132,29 @@ def test_flag_needs_write_permission_even_when_on(app, flag_file):
     assert first_todo(app).flagged is False
 
 
+def test_rollout_0_blocks_users_on_server_but_admin_bypasses(app, flag_file):
+    """Toggles combined with RBAC: users outside the rollout get 403, admins (QA) get the feature."""
+    flag_file({"priority_flag": {"enabled": True, "rollout": 0}})
+    user, admin = new_user(app, "alice"), new_user(app, "root", role="admin")
+    user.post("/todos", data={"title": "u", "priority": "3"})
+    admin.post("/todos", data={"title": "a", "priority": "3"})
+    with app.app_context():
+        user_todo = Todo.query.filter_by(title="u").one().id
+        admin_todo = Todo.query.filter_by(title="a").one().id
+    assert 'data-testid="flag-button"' not in user.get("/").get_data(as_text=True)
+    assert user.post(f"/todos/{user_todo}/flag").status_code == 403
+    assert 'data-testid="flag-button"' in admin.get("/").get_data(as_text=True)
+    assert admin.post(f"/todos/{admin_todo}/flag").status_code == 302
+
+
+def test_kill_switch_also_stops_admins(app, flag_file, monkeypatch):
+    flag_file(ALL_ON)
+    admin = new_user(app, "root", role="admin")
+    admin.post("/todos", data={"title": "a", "priority": "3"})
+    monkeypatch.setenv("FLAGS_KILL", "priority_flag")
+    assert admin.post(f"/todos/{first_todo(app).id}/flag").status_code == 403
+
+
 def test_flag_form_is_csrf_protected(flag_file):
     flag_file(ALL_ON)
     app = build_app(WTF_CSRF_ENABLED=True)
