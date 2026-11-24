@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Todo App{% endblock %}</title>
+  <title>{% block title %}TodoLite{% endblock %} · TodoLite</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
 </head>
 <body>
   <main>
     {% with messages = get_flashed_messages() %}
-      {% if messages %}<ul class="flash">{% for message in messages %}<li>{{ message }}</li>{% endfor %}</ul>{% endif %}
+      {% if messages %}<ul class="flash" role="alert">{% for message in messages %}<li>{{ message }}</li>{% endfor %}</ul>{% endif %}
     {% endwith %}
     {% block content %}{% endblock %}
   </main>

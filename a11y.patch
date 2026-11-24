@@ -1,0 +1,149 @@
+diff --git a/static/app.css b/static/app.css
+index f13265a..74bd0ad 100644
+--- a/static/app.css
++++ b/static/app.css
+@@ -11,3 +11,15 @@ input, select, button { padding: .6rem; }
+ .priority { font-weight: bold; min-width: 2.5rem; }
+ .flash { color: #a00; }
+ .hint { color: #666; }
++
++/* Accessibility and layout pass */
++label { font-weight: 600; }
++form.stacked { flex-direction: column; align-items: stretch; max-width: 320px; }
++.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
++:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
++@media (max-width: 480px) {
++  form.add { flex-wrap: wrap; }
++  form.add input { flex: 1 1 100%; }
++  .todos li { flex-wrap: wrap; }
++  .todos li form { margin-left: 0; }
++}
+diff --git a/templates/base.html b/templates/base.html
+index 4142964..cc0d3ee 100644
+--- a/templates/base.html
++++ b/templates/base.html
+@@ -3,13 +3,13 @@
+ <head>
+   <meta charset="utf-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1">
+-  <title>{% block title %}Todo App{% endblock %}</title>
++  <title>{% block title %}TodoLite{% endblock %} · TodoLite</title>
+   <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+ </head>
+ <body>
+   <main>
+     {% with messages = get_flashed_messages() %}
+-      {% if messages %}<ul class="flash">{% for message in messages %}<li>{{ message }}</li>{% endfor %}</ul>{% endif %}
++      {% if messages %}<ul class="flash" role="alert">{% for message in messages %}<li>{{ message }}</li>{% endfor %}</ul>{% endif %}
+     {% endwith %}
+     {% block content %}{% endblock %}
+   </main>
+diff --git a/templates/index.html b/templates/index.html
+index e8009ea..154b254 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -6,6 +6,7 @@
+   <form action="{{ url_for('auth.logout') }}" method="post"><button type="submit">Logout</button></form>
+ </header>
+ <form class="add" action="{{ url_for('todos.create') }}" method="post" data-quick-add="{{ 'true' if quick_add else 'false' }}">
++  <label for="todo-title" class="visually-hidden">New todo</label>
+   <input id="todo-title" name="title" placeholder="Add a todo" required>
+   <select name="priority" aria-label="Priority">
+     {% for priority in range(1, 6) %}<option value="{{ priority }}">{{ priority }}</option>{% endfor %}
+@@ -16,13 +17,13 @@
+ <ul class="todos">
+ {% for todo in todos %}
+   <li class="{{ 'completed' if todo.completed }}">
+-    <span class="priority">P{{ todo.priority }}</span>
++    <span class="priority" aria-label="Priority {{ todo.priority }}">P{{ todo.priority }}</span>
+     <span>{{ todo.title }}</span>
+     <form action="{{ url_for('todos.complete', todo_id=todo.id) }}" method="post">
+-      <button type="submit" {{ 'disabled' if todo.completed }}>Complete</button>
++      <button type="submit" aria-label="Complete: {{ todo.title }}" {{ 'disabled' if todo.completed }}>Complete</button>
+     </form>
+     <form action="{{ url_for('todos.delete', todo_id=todo.id) }}" method="post">
+-      <button type="submit">Delete</button>
++      <button type="submit" aria-label="Delete: {{ todo.title }}">Delete</button>
+     </form>
+   </li>
+ {% else %}
+diff --git a/templates/login.html b/templates/login.html
+index 4fe593c..bd8f44a 100644
+--- a/templates/login.html
++++ b/templates/login.html
+@@ -2,9 +2,11 @@
+ {% block title %}Login{% endblock %}
+ {% block content %}
+ <h1>Login</h1>
+-<form method="post">
+-  <input name="username" placeholder="Username" required>
+-  <input name="password" type="password" placeholder="Password" required>
++<form method="post" class="stacked">
++  <label for="username">Username</label>
++  <input id="username" name="username" autocomplete="username" required>
++  <label for="password">Password</label>
++  <input id="password" name="password" type="password" autocomplete="current-password" required>
+   <button type="submit">Login</button>
+ </form>
+ <p><a href="{{ url_for('auth.signup') }}">Create account</a></p>
+diff --git a/templates/signup.html b/templates/signup.html
+index 572522e..ec6bf34 100644
+--- a/templates/signup.html
++++ b/templates/signup.html
+@@ -2,9 +2,11 @@
+ {% block title %}Sign up{% endblock %}
+ {% block content %}
+ <h1>Sign up</h1>
+-<form method="post">
+-  <input name="username" placeholder="Username" required>
+-  <input name="password" type="password" placeholder="Password" required>
++<form method="post" class="stacked">
++  <label for="username">Username</label>
++  <input id="username" name="username" autocomplete="username" required>
++  <label for="password">Password</label>
++  <input id="password" name="password" type="password" autocomplete="new-password" required>
+   <button type="submit">Sign up</button>
+ </form>
+ <p><a href="{{ url_for('auth.login') }}">Login</a></p>
+diff --git a/tests/test_accessibility.py b/tests/test_accessibility.py
+new file mode 100644
+index 0000000..1aeeb77
+--- /dev/null
++++ b/tests/test_accessibility.py
+@@ -0,0 +1,36 @@
++from app import create_app
++
++
++def make_app():
++    return create_app({
++        "TESTING": True,
++        "SECRET_KEY": "test",
++        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
++    })
++
++
++def test_login_and_signup_fields_have_labels():
++    client = make_app().test_client()
++    for page in ("/login", "/signup"):
++        html = client.get(page).data
++        assert b'<label for="username">' in html
++        assert b'<label for="password">' in html
++        assert b'id="username"' in html and b'id="password"' in html
++
++
++def test_todo_buttons_say_which_todo_they_act_on():
++    client = make_app().test_client()
++    client.post("/signup", data={"username": "ana", "password": "secret"})
++    client.post("/todos", data={"title": "Buy milk", "priority": "3"})
++    html = client.get("/").data
++    assert b'<label for="todo-title"' in html
++    assert b'aria-label="Complete: Buy milk"' in html
++    assert b'aria-label="Delete: Buy milk"' in html
++
++
++def test_error_messages_are_announced():
++    client = make_app().test_client()
++    html = client.post("/login", data={"username": "nobody", "password": "wrong"},
++                       follow_redirects=True).data
++    assert b'role="alert"' in html
++    assert b"Invalid username or password." in html

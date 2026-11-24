@@ -6,6 +6,7 @@
   <form action="{{ url_for('auth.logout') }}" method="post"><button type="submit">Logout</button></form>
 </header>
 <form class="add" action="{{ url_for('todos.create') }}" method="post" data-quick-add="{{ 'true' if quick_add else 'false' }}">
+  <label for="todo-title" class="visually-hidden">New todo</label>
   <input id="todo-title" name="title" placeholder="Add a todo" required>
   <select name="priority" aria-label="Priority">
     {% for priority in range(1, 6) %}<option value="{{ priority }}">{{ priority }}</option>{% endfor %}
@@ -16,13 +17,13 @@
 <ul class="todos">
 {% for todo in todos %}
   <li class="{{ 'completed' if todo.completed }}">
-    <span class="priority">P{{ todo.priority }}</span>
+    <span class="priority" aria-label="Priority {{ todo.priority }}">P{{ todo.priority }}</span>
     <span>{{ todo.title }}</span>
     <form action="{{ url_for('todos.complete', todo_id=todo.id) }}" method="post">
-      <button type="submit" {{ 'disabled' if todo.completed }}>Complete</button>
+      <button type="submit" aria-label="Complete: {{ todo.title }}" {{ 'disabled' if todo.completed }}>Complete</button>
     </form>
     <form action="{{ url_for('todos.delete', todo_id=todo.id) }}" method="post">
-      <button type="submit">Delete</button>
+      <button type="submit" aria-label="Delete: {{ todo.title }}">Delete</button>
     </form>
   </li>
 {% else %}
