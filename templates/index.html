@@ -5,8 +5,13 @@
   <h1>My Todos</h1>
   <form action="{{ url_for('auth.logout') }}" method="post"><button type="submit">Logout</button></form>
 </header>
+{% set show_nudge = empty_state_nudge and not todos %}
+{% if show_nudge %}
+<div class="nudge" role="status" data-testid="empty-state-nudge">Add your first todo to get started</div>
+{% endif %}
 <form class="add" action="{{ url_for('todos.create') }}" method="post" data-quick-add="{{ 'true' if quick_add else 'false' }}">
-  <input id="todo-title" name="title" placeholder="Add a todo" required>
+  <input id="todo-title" name="title" required
+         placeholder="{{ 'Add your first todo…' if show_nudge else 'Add a todo' }}"{{ ' autofocus' if show_nudge }}>
   <select name="priority" aria-label="Priority">
     {% for priority in range(1, 6) %}<option value="{{ priority }}">{{ priority }}</option>{% endfor %}
   </select>
@@ -15,9 +20,19 @@
 {% if priority_sort %}<p class="hint">Sorted by priority</p>{% endif %}
 <ul class="todos">
 {% for todo in todos %}
-  <li class="{{ 'completed' if todo.completed }}">
+  {% set is_flagged = priority_flag and todo.flagged %}
+  <li class="{{ 'completed' if todo.completed }}{{ ' flagged' if is_flagged }}">
     <span class="priority">P{{ todo.priority }}</span>
-    <span>{{ todo.title }}</span>
+    <span class="title">{{ todo.title }}</span>
+    {% if priority_flag %}
+    <form action="{{ url_for('todos.flag', todo_id=todo.id) }}" method="post">
+      <button type="submit" class="flag-btn" data-testid="flag-button"
+              aria-pressed="{{ 'true' if is_flagged else 'false' }}"
+              title="{{ 'Remove high priority' if is_flagged else 'Mark as high priority' }}">
+        {{ '🚩' if is_flagged else '⚐' }}
+      </button>
+    </form>
+    {% endif %}
     <form action="{{ url_for('todos.complete', todo_id=todo.id) }}" method="post">
       <button type="submit" {{ 'disabled' if todo.completed }}>Complete</button>
     </form>
@@ -26,7 +41,7 @@
     </form>
   </li>
 {% else %}
-  <li>No todos yet.</li>
+  {% if not empty_state_nudge %}<li>No todos yet.</li>{% endif %}
 {% endfor %}
 </ul>
 <script src="{{ url_for('static', filename='app.js') }}"></script>

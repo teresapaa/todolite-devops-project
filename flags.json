@@ -1,4 +1,6 @@
 {
   "quick_add": {"enabled": true, "rollout": 50},
-  "priority_sort": {"enabled": true, "rollout": 50}
+  "priority_sort": {"enabled": true, "rollout": 50},
+  "empty_state_nudge": {"enabled": true, "rollout": 50},
+  "priority_flag": {"enabled": true, "rollout": 50}
 }

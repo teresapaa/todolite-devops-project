@@ -11,3 +11,12 @@ input, select, button { padding: .6rem; }
 .priority { font-weight: bold; min-width: 2.5rem; }
 .flash { color: #a00; }
 .hint { color: #666; }
+
+/* empty_state_nudge (ON) */
+.nudge { background: #eef5ff; border: 2px solid #3b82f6; border-radius: 8px;
+         padding: .9rem 1rem; font-weight: 600; color: #1e3a8a; margin-top: 1rem; }
+
+/* priority_flag (ON) */
+.todos li.flagged { background: #fdecec; border-left: 4px solid #dc2626; padding-left: .5rem; }
+.flag-btn { background: none; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; min-width: 2.4rem; }
+.flag-btn[aria-pressed="true"] { border-color: #dc2626; color: #dc2626; }
